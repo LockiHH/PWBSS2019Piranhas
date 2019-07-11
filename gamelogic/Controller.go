@@ -7,12 +7,12 @@ import (
 )
 
 type Controller struct {
-	state *GameState
-	roomID string
-	ownPlayer *Player
+	state         *GameState
+	roomID        string
+	ownPlayer     *Player
 	foreignPlayer *Player
-	moveLogic *MoveLogic
-	calcPerRound int
+	moveLogic     *MoveLogic
+	calcPerRound  int
 }
 
 func (c *Controller) RoomID() string {
@@ -23,7 +23,7 @@ var singleton *Controller = nil
 
 func GetController() *Controller {
 	if singleton == nil {
-		singleton = &Controller{moveLogic:&MoveLogic{}}
+		singleton = &Controller{moveLogic: &MoveLogic{}}
 	}
 	return singleton
 }
@@ -55,12 +55,23 @@ func (c *Controller) CalculateStaticHeuristic(board *Board, oldBoard *Board, mov
 	//heuristic += c.moveLogic.CalculateSwarmDistance(oldBoard, c.ownPlayer) - c.moveLogic.CalculateSwarmDistance(board, c.ownPlayer)
 	heuristic += c.moveLogic.CalculateDistanceToSwarm(oldBoard, c.ownPlayer) - c.moveLogic.CalculateDistanceToSwarm(board, c.ownPlayer)
 	heuristic += float64(c.moveLogic.CalculateSwarmSize(board, c.ownPlayer)) - float64(c.moveLogic.CalculateSwarmSize(oldBoard, c.ownPlayer))
-	heuristic += math.Min(math.Abs(float64(move.X) - 4.5), math.Abs(float64(move.Y) - 4.5))
-	heuristic -= math.Max(math.Abs(float64(targetField.X) - 4.5), math.Abs(float64(targetField.Y) - 4.5))
+	heuristic += math.Min(math.Abs(float64(move.X)-4.5), math.Abs(float64(move.Y)-4.5))
+	heuristic -= math.Max(math.Abs(float64(targetField.X)-4.5), math.Abs(float64(targetField.Y)-4.5))
 
 	if c.moveLogic.HasPlayerWon(board, c.ownPlayer) {
 		heuristic += 1000000.0
 	}
+
+	if c.moveLogic.HasPlayerWon(board, c.foreignPlayer) {
+		heuristic = -100000.0
+	}
+	if targetField.IsPiranhaOfPlayer(c.foreignPlayer) {
+		heuristic += 5 - math.Max(math.Abs(float64(move.X)-4.5), math.Abs(float64(move.Y)-4.5))
+	}
+
+	heuristic += (float64(c.moveLogic.CalculateSwarmSize(oldBoard, c.foreignPlayer)) - float64(c.moveLogic.CalculateSwarmSize(board, c.foreignPlayer))) / 2
+	heuristic += (c.moveLogic.CalculateDistanceToSwarm(board, c.foreignPlayer) - c.moveLogic.CalculateDistanceToSwarm(oldBoard, c.foreignPlayer)) / 2
+	heuristic += float64(len(c.moveLogic.GetMovesToSwarm(oldBoard, c.foreignPlayer))-len(c.moveLogic.GetMovesToSwarm(board, c.foreignPlayer))) / 2
 
 	return heuristic
 }
@@ -68,12 +79,12 @@ func (c *Controller) CalculateStaticHeuristic(board *Board, oldBoard *Board, mov
 func (c *Controller) CalculateDynamicHeuristic(board *Board, depth int) float64 {
 	moveHeuristic := 0.0
 
-	if depth != 0 && c.calcPerRound < 50000{
+	if depth != 0 && c.calcPerRound < 50000 {
 		possibleMoves := c.moveLogic.GetPossibleMoves(board, c.ownPlayer)
-		type ratedMove struct{
+		type ratedMove struct {
 			heuristic float64
-			board *Board
-			move *Move
+			board     *Board
+			move      *Move
 		}
 		var moves []ratedMove
 
@@ -86,14 +97,14 @@ func (c *Controller) CalculateDynamicHeuristic(board *Board, depth int) float64 
 		sort.Slice(moves, func(l, r int) bool {
 			return moves[l].heuristic > moves[r].heuristic
 		})
-		maxBreath := 15
+		maxBreath := 60
 		if len(moves) < maxBreath {
 			maxBreath = len(moves)
 		}
 
 		for _, m := range moves[:maxBreath] {
 			nextDepth := depth - 1
-			heuristic := c.CalculateDynamicHeuristic(m.board, nextDepth) / 4 + m.heuristic
+			heuristic := c.CalculateDynamicHeuristic(m.board, nextDepth)/4 + m.heuristic
 			if heuristic > moveHeuristic {
 				moveHeuristic = heuristic
 			}
@@ -105,7 +116,7 @@ func (c *Controller) CalculateDynamicHeuristic(board *Board, depth int) float64 
 
 func (c *Controller) NextTurn() (*Move, error) {
 	c.calcPerRound = 0
-	if ! c.readyToPlay() {
+	if !c.readyToPlay() {
 		return nil, fmt.Errorf("controller is not ready to play")
 	}
 
@@ -117,7 +128,7 @@ func (c *Controller) NextTurn() (*Move, error) {
 		targetBoard := c.moveLogic.ApplyMove(c.state.board, move)
 
 		moveHeuristic := c.CalculateStaticHeuristic(targetBoard, c.state.board, move)
-		moveHeuristic += c.CalculateDynamicHeuristic(targetBoard, 2) / 4
+		moveHeuristic += c.CalculateDynamicHeuristic(targetBoard, 1) / 4
 
 		if moveHeuristic > bestHeuristic {
 			bestHeuristic = moveHeuristic

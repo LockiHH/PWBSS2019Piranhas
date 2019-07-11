@@ -3,7 +3,6 @@ package gamelogic
 import "math"
 
 type MoveLogic struct {
-
 }
 
 func (m *MoveLogic) GetPossibleMoves(board *Board, player *Player) []*Move {
@@ -25,7 +24,38 @@ func (m *MoveLogic) GetPossibleMoves(board *Board, player *Player) []*Move {
 	return moves
 }
 
-func(m *MoveLogic) IsValidMove(board *Board, player *Player, move *Move, distance int) bool {
+func (m *MoveLogic) GetMovesToSwarm(board *Board, player *Player) []*Move {
+	moves := m.GetPossibleMoves(board, player)
+	swarm := m.GetSwarm(board, player)
+
+	var res []*Move
+
+	for _, move := range moves {
+		minDistance := 1000.0
+		minTargetDistance := 1000.0
+
+		targetField := m.GetFieldInDirection(board, move, m.CalculateMoveDistance(board, board.GetField(move.X, move.Y), move.Direction))
+
+		for _, s := range swarm {
+			dist := math.Sqrt(math.Pow(float64(s.X-move.X), 2) + math.Pow(float64(s.Y-move.Y), 2))
+			targetDist := math.Sqrt(math.Pow(float64(s.X-targetField.X), 2) + math.Pow(float64(s.Y-targetField.Y), 2))
+			if dist < minDistance {
+				minDistance = dist
+			}
+			if targetDist < minTargetDistance {
+				minTargetDistance = targetDist
+			}
+		}
+
+		if minTargetDistance < minDistance && minDistance > 0.0 {
+			res = append(res, move)
+		}
+	}
+
+	return res
+}
+
+func (m *MoveLogic) IsValidMove(board *Board, player *Player, move *Move, distance int) bool {
 
 	nextField := m.GetFieldInDirection(board, move, distance)
 
@@ -53,26 +83,26 @@ func(m *MoveLogic) IsValidMove(board *Board, player *Player, move *Move, distanc
 	return true
 }
 
-func (m* MoveLogic) GetFieldInDirection(board *Board, move *Move, distance int) *Field {
+func (m *MoveLogic) GetFieldInDirection(board *Board, move *Move, distance int) *Field {
 	targetX := move.X
 	targetY := move.Y
 
 	switch move.Direction {
 	case DirectionLeft:
-			targetX -= distance
+		targetX -= distance
 		break
 	case DirectionRight:
-			targetX += distance
+		targetX += distance
 		break
 	case DirectionUp:
-			targetY += distance
+		targetY += distance
 		break
 	case DirectionDown:
-			targetY -= distance
+		targetY -= distance
 		break
 	case DirectionUpRight:
-			targetY += distance
-			targetX += distance
+		targetY += distance
+		targetX += distance
 		break
 	case DirectionDownLeft:
 		targetY -= distance
@@ -95,9 +125,9 @@ func (m* MoveLogic) GetFieldInDirection(board *Board, move *Move, distance int) 
 	return board.GetField(targetX, targetY)
 }
 
-func (m* MoveLogic) getFieldsInDirection(board *Board, move *Move, distance int) []*Field {
+func (m *MoveLogic) getFieldsInDirection(board *Board, move *Move, distance int) []*Field {
 	var fields []*Field
-	for i:= 0; i < distance; i++ {
+	for i := 0; i < distance; i++ {
 		fields = append(fields, m.GetFieldInDirection(board, move, i))
 	}
 	return fields
@@ -105,22 +135,22 @@ func (m* MoveLogic) getFieldsInDirection(board *Board, move *Move, distance int)
 
 func (m *MoveLogic) CalculateMoveDistance(board *Board, field *Field, direction Direction) int {
 	switch direction {
-		case DirectionLeft:
-			fallthrough
-		case DirectionRight:
-			return m.moveDistanceHorizontal(board, field.Y)
-		case DirectionUp:
-			fallthrough
-		case DirectionDown:
-			return m.moveDistanceVertical(board, field.X)
-		case DirectionUpRight:
-			fallthrough
-		case DirectionDownLeft:
-			return m.moveDistanceDiagonalRising(board, field.X, field.Y)
-		case DirectionDownRight:
-			fallthrough
-		case DirectionUpLeft:
-			return m.moveDistanceDiagonalFalling(board, field.X, field.Y)
+	case DirectionLeft:
+		fallthrough
+	case DirectionRight:
+		return m.moveDistanceHorizontal(board, field.Y)
+	case DirectionUp:
+		fallthrough
+	case DirectionDown:
+		return m.moveDistanceVertical(board, field.X)
+	case DirectionUpRight:
+		fallthrough
+	case DirectionDownLeft:
+		return m.moveDistanceDiagonalRising(board, field.X, field.Y)
+	case DirectionDownRight:
+		fallthrough
+	case DirectionUpLeft:
+		return m.moveDistanceDiagonalFalling(board, field.X, field.Y)
 	}
 	return -1
 }
@@ -151,7 +181,7 @@ func (m *MoveLogic) moveDistanceDiagonalRising(board *Board, x int, y int) int {
 	cX := x
 	cY := y
 
-	for cX >= 0 && cY>= 0 {
+	for cX >= 0 && cY >= 0 {
 		if board.GetField(cX, cY).IsPiranha() {
 			count++
 		}
@@ -178,7 +208,7 @@ func (m *MoveLogic) moveDistanceDiagonalFalling(board *Board, x int, y int) int 
 	cX := x
 	cY := y
 
-	for cX < board.width && cY>= 0 {
+	for cX < board.width && cY >= 0 {
 		if board.GetField(cX, cY).IsPiranha() {
 			count++
 		}
@@ -200,7 +230,7 @@ func (m *MoveLogic) moveDistanceDiagonalFalling(board *Board, x int, y int) int 
 	return count
 }
 
-func (m *MoveLogic) CalculateSwarmDistance(board *Board, player *Player) float64  {
+func (m *MoveLogic) CalculateSwarmDistance(board *Board, player *Player) float64 {
 	ownFields := m.GetPiranhas(board, player)
 	sumX := 0
 	sumY := 0
@@ -213,7 +243,7 @@ func (m *MoveLogic) CalculateSwarmDistance(board *Board, player *Player) float64
 
 	distance := 0.0
 	for _, field := range ownFields {
-		distance += math.Sqrt(math.Pow(float64(field.X) - avgX, 2) + math.Pow(float64(field.Y) - avgY, 2))
+		distance += math.Sqrt(math.Pow(float64(field.X)-avgX, 2) + math.Pow(float64(field.Y)-avgY, 2))
 	}
 
 	return distance
@@ -227,7 +257,7 @@ func (m *MoveLogic) CalculateDistanceToSwarm(board *Board, player *Player) float
 	for _, p := range piranhas {
 		minDistance := math.MaxFloat64
 		for _, s := range swarm {
-			d := math.Sqrt(math.Pow(float64(p.X) - float64(s.X), 2) + math.Pow(float64(p.Y) - float64(s.Y), 2))
+			d := math.Sqrt(math.Pow(float64(p.X)-float64(s.X), 2) + math.Pow(float64(p.Y)-float64(s.Y), 2))
 			if d < minDistance {
 				minDistance = d
 			}
@@ -288,8 +318,8 @@ func (m *MoveLogic) GetSwarm(board *Board, player *Player) []*Field {
 		dict := make(map[*Field]int)
 		piranhas := m.GetPiranhas(board, player)
 
-		x:= 0
-		y:= 0
+		x := 0
+		y := 0
 		count := 0
 		for count != len(piranhas) {
 			f := board.GetField(x, y)
@@ -314,7 +344,6 @@ func (m *MoveLogic) GetSwarm(board *Board, player *Player) []*Field {
 		for k, v := range dict {
 			d[v] = append(d[v], k)
 		}
-
 
 		maxSize := 0
 		for _, swarm := range d {
